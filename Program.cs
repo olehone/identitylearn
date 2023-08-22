@@ -1,13 +1,20 @@
 
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDataProtection();
-builder.Services.AddHttpContextAccessor(); 
-builder.Services.AddScoped<AuthService>();
-var app = builder.Build();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddAuthentication("cookie").AddCookie("cookie");
 
+/*
+builder.Services.AddScoped<AuthService>();
+*/
+var app = builder.Build();
+app.UseAuthentication();
+
+/*
 app.Use((ctx, next) =>
 {
     var idp = ctx.RequestServices.GetRequiredService<IDataProtectionProvider>();
@@ -26,6 +33,7 @@ app.Use((ctx, next) =>
     ctx.User = new ClaimsPrincipal(identity);
     return next();
 });
+*/
 
 app.MapGet("/username", (HttpContext ctx ) =>
 {
@@ -33,15 +41,20 @@ app.MapGet("/username", (HttpContext ctx ) =>
 });
 
 
-app.MapGet("/login", (AuthService auth) =>
+app.MapGet("/login",async (HttpContext ctx) =>
 {
-    auth.SingIn();
+    var claims = new List<Claim>();
+    claims.Add(new Claim("user","oleh"));
+    var identity = new ClaimsIdentity(claims, "cookie");
+    var user = new ClaimsPrincipal(identity);
+    await ctx.SignInAsync("cookie", user);
     return "ok";
 });
 
 
 app.Run();
 
+/*
 public class AuthService
 {
     private readonly IDataProtectionProvider _idp;
@@ -59,4 +72,4 @@ public class AuthService
         _accessor.HttpContext.Response.Headers["set-cookie"] = $"auth={protector.Protect("usr:anton")}";
     }
 
-}
+}*/
