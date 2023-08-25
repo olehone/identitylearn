@@ -2,11 +2,13 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc;
 
+const string AuthScheme = "cookie";
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDataProtection();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddAuthentication("cookie").AddCookie("cookie");
+builder.Services.AddAuthentication(AuthScheme).AddCookie(AuthScheme);
 
 /*
 builder.Services.AddScoped<AuthService>();
@@ -37,14 +39,35 @@ app.Use((ctx, next) =>
 
 app.MapGet("/username", (HttpContext ctx ) =>
 {
-    return ctx.User.FindFirst("usr").Value;
+    return ctx.User.FindFirst("user")?.Value ?? "no user";
 });
 
+app.MapGet("/admin", (HttpContext ctx ) =>
+{
+    if (!ctx.User.Identities.Any(x => x.AuthenticationType == AuthScheme))
+    {
+        ctx.Response.StatusCode = 401;
+        return "";
+    }
 
+    if (!ctx.User.HasClaim("access", "admin"))
+    {
+        ctx.Response.StatusCode = 403;
+        return "";
+    }
+    return "ok, u are admin, let`s ban someone";
+});
+
+app.MapGet("/logout",async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(AuthScheme);
+    return "logout successfull";
+});
 app.MapGet("/login",async (HttpContext ctx) =>
 {
     var claims = new List<Claim>();
     claims.Add(new Claim("user","oleh"));
+    claims.Add(new Claim("access","admin"));
     var identity = new ClaimsIdentity(claims, "cookie");
     var user = new ClaimsPrincipal(identity);
     await ctx.SignInAsync("cookie", user);
